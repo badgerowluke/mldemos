@@ -77,7 +77,7 @@ namespace sentiment_demo
             var predictFunction = model.CreatePredictionEngine<SentimentData, SentimentPrediction>(context);
             SentimentData sampleStatement = new SentimentData
             {
-                SentimentText ="you are a fucking rude asshole"
+                SentimentText ="why you scruffy looking, nerf-herder"
             };
             var resultPrediction = predictFunction.Predict(sampleStatement);
 
