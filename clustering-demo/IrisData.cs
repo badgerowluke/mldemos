@@ -20,7 +20,8 @@ namespace clustering_demo
 
     public class ClusterPrediction
     {
-        [ColumnName("PredictedLabel")]
+
+        [ColumnName("PredictedLabelID")]
         public uint PredictedClusterId;
 
         [ColumnName("Score")]

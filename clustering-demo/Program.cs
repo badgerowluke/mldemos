@@ -26,6 +26,7 @@ namespace clustering_demo
             // var pipeline = mlContext.Transforms.Conversion.MapValueToKey("Label")
             //     .Append(mlContext.Transforms.Concatenate("Features", "SepalLength", "SepalWidth", "PetalLength", "PetalWidth"))
             //     .AppendCacheCheckpoint(mlContext)
+            //     // .Append(mlContext.Clustering.Trainers.KMeans(featuresColumnName, clustersCount:3))
             //     .Append(mlContext.MulticlassClassification.Trainers.StochasticDualCoordinateAscent(labelColumnName: "Label", featureColumnName: "Features"))
             //     .Append(mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
             
