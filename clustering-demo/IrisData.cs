@@ -14,6 +14,8 @@ namespace clustering_demo
 
         [LoadColumn(3)]
         public float PetalWidth;
+        [LoadColumn(4)]
+        public string Label;
     }
 
     public class ClusterPrediction

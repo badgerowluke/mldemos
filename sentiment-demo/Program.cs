@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using Microsoft.Data.DataView;
 using Microsoft.ML;
-using Microsoft.ML.Core.Data;
 using Microsoft.ML.Data;
 using Microsoft.ML.Transforms.Text;
 
@@ -12,48 +11,42 @@ namespace sentiment_demo
 {
     class Program
     {
-        static readonly string _trainDataPath = Path.Combine(Environment.CurrentDirectory, "Data", "wikipedia-detox-250-line-data.tsv");
-        static readonly string _testDataPath= Path.Combine(Environment.CurrentDirectory, "Data", "wikipedia-detox-250-line-test.tsv");
+        static readonly string _dataPath = Path.Combine(Environment.CurrentDirectory, "Data", "yelp_labelled.txt");
         static readonly string _modelPath = Path.Combine(Environment.CurrentDirectory, "Data", "Model.zip");
-        static TextLoader _textLoader;
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
-            MLContext mlContext = new MLContext(seed: 0);
-            _textLoader = mlContext.Data.CreateTextLoader(
-                columns: new TextLoader.Column[]
-                {
-                    new TextLoader.Column("Label", DataKind.Bool, 0),
-                    new TextLoader.Column("SentimentText", DataKind.Text,1)
-                },
-                separatorChar: '\t',
-                hasHeader: true
-            );
-            var model = Train(context: mlContext, trainingPath: _trainDataPath);
-            Evaluate(context: mlContext, model: model);
-            SaveModelAsFile(context: mlContext, model: model);
-            Predict(context: mlContext, model: model);
-            // PredictWithModelLoadedFromFile(context: mlContext);
+            MLContext mlContext = new MLContext();
+            TrainCatalogBase.TrainTestData splitDataView = LoadData(mlContext);
+            ITransformer model = BuildAndTrain(mlContext, splitDataView.TrainSet);
+            Evaluate(mlContext, model, splitDataView.TestSet);
+            SaveModelAsFile(mlContext, model);
+            Predict(mlContext, model);
+            PredictWithModelLoadedFromFile(mlContext);
+
             
         }
-        static ITransformer Train(MLContext context, string trainingPath)
+        public static TrainCatalogBase.TrainTestData LoadData(MLContext context)
+        {
+            IDataView dataView = context.Data.LoadFromTextFile<SentimentData>(_dataPath,hasHeader:false);
+            TrainCatalogBase.TrainTestData splitDataView = context.BinaryClassification.TrainTestSplit(dataView, testFraction: 0.2);
+            return splitDataView;
+        }
+        static ITransformer BuildAndTrain(MLContext context, IDataView trainSet)
         {
             Console.WriteLine("=============== Create and Train the Model ===============");
-            IDataView dataView = _textLoader.Read(trainingPath);
-            var pipeline = context.Transforms.Text
-                        .FeaturizeText(inputColumnName: "SentimentText", outputColumnName: "Features")
+            var pipeline = context.Transforms.Text.FeaturizeText(outputColumnName: DefaultColumnNames.Features, inputColumnName: nameof(SentimentData.SentimentText))
                         .Append(context.BinaryClassification.Trainers.FastTree(numLeaves: 50, numTrees: 50, minDatapointsInLeaves: 20));
 
-            var model = pipeline.Fit(dataView);
+            var model = pipeline.Fit(trainSet);
             
             Console.WriteLine("=============== End of Training ===============");
             return model;                                                                                                                                                                                                                                                                                                                                  
         }
-        static void Evaluate(MLContext context, ITransformer model)
+        static void Evaluate(MLContext context, ITransformer model, IDataView testSet)
         {
-            var dataView = _textLoader.Read(_testDataPath);
             Console.WriteLine("=============== Evaluating Model accuracy with Test data===============");
-            var predictions = model.Transform(dataView);
+            var predictions = model.Transform(testSet);
             var metrics = context.BinaryClassification.Evaluate(predictions, "Label");
 
             Console.WriteLine();
@@ -77,15 +70,15 @@ namespace sentiment_demo
             var predictFunction = model.CreatePredictionEngine<SentimentData, SentimentPrediction>(context);
             SentimentData sampleStatement = new SentimentData
             {
-                SentimentText ="why you scruffy looking, nerf-herder"
+                SentimentText ="This is a very bad steak"
             };
             var resultPrediction = predictFunction.Predict(sampleStatement);
-
             Console.WriteLine();
             Console.WriteLine("=============== Prediction Test of model with a single sample and test dataset ===============");
 
             Console.WriteLine();
-            Console.WriteLine($"Sentiment: {sampleStatement.SentimentText} | Prediction: {(Convert.ToBoolean(resultPrediction.Prediction) ? "Toxic" : "Not Toxic")} | Probability: {resultPrediction.Probability} ");
+            Console.WriteLine($"Sentiment: {sampleStatement.SentimentText} | Prediction: {(Convert.ToBoolean(resultPrediction.Prediction) ? "Positive" : "Negative")} | Probability: {resultPrediction.Probability} ");
+
             Console.WriteLine("=============== End of Predictions ===============");
             Console.WriteLine();
         }
@@ -95,24 +88,25 @@ namespace sentiment_demo
             {
                 new SentimentData
                 {
-                    SentimentText = "This is a very rude movie"
+                    SentimentText = "This was a horrible meal"
                 },
                 new SentimentData
                 {
-                    SentimentText = "I love this article."
+                    SentimentText = "I love this spaghetti."
                 }
             };
+
             ITransformer loadedModel;
             using (var stream = new FileStream(_modelPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 loadedModel = context.Model.Load(stream);
             }   
             // Create prediction engine
-            var sentimentStreamingDataView = context.Data.ReadFromEnumerable(sentiments);
+            var sentimentStreamingDataView = context.Data.LoadFromEnumerable(sentiments);
             var predictions = loadedModel.Transform(sentimentStreamingDataView);
 
             // Use the model to predict whether comment data is toxic (1) or nice (0).
-            var predictedResults = context.CreateEnumerable<SentimentPrediction>(predictions, reuseRowObject: false);        
+            var predictedResults = context.Data.CreateEnumerable<SentimentPrediction>(predictions, reuseRowObject: true);        
             Console.WriteLine();
 
             Console.WriteLine("=============== Prediction Test of loaded model with a multiple samples ===============");    
@@ -120,7 +114,7 @@ namespace sentiment_demo
             foreach (var item in sentimentsAndPredictions)
             {
                 
-                Console.WriteLine($"Sentiment: {item.sentiment.SentimentText} | Prediction: {(Convert.ToBoolean(item.prediction.Prediction) ? "Toxic" : "Not Toxic")} | Probability: {item.prediction.Probability} ");
+                Console.WriteLine($"Sentiment: {item.sentiment.SentimentText} | Prediction: {(Convert.ToBoolean(item.prediction.Prediction) ? "Positive" : "Negative")} | Probability: {item.prediction.Probability} ");
             }
             Console.WriteLine("=============== End of predictions ===============");
         }

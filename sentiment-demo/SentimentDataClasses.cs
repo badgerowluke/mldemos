@@ -4,21 +4,21 @@ namespace sentiment_demo
 {
     public class SentimentData
     {
-        [Column(ordinal: "0", name: "Label")]        
-        public float Sentiment;
-        [Column(ordinal: "1")]
+        [LoadColumn(0)]        
         public string SentimentText;
+        [LoadColumn(1), ColumnName("Label")]
+        public bool Sentiment;
     }
 
     public class SentimentPrediction
     {
-        [ColumnName("PredictionLabel")]
+        [ColumnName("PredictedLabel")]
         public bool Prediction { get; set; }
 
-        [ColumnName("Perovibility")]
+        // [ColumnName("Probability")]
         public float Probability { get; set; }
 
-        [ColumnName("Score")]
+        // [ColumnName("Score")]
         public float Score { get; set; }
         
     }

@@ -14,20 +14,23 @@ namespace clustering_demo
         
         static void Main(string[] args)
         {
-            var mlContext = new MLContext(seed:0);
-            //set up data load
-            TextLoader textLoader = mlContext.Data.CreateTextLoader<IrisData>(false,',');
-            var dataView = textLoader.Read(_dataPath);
+            var mlContext = new MLContext();
+            IDataView data = mlContext.Data.LoadFromTextFile<IrisData>(_dataPath, hasHeader:false, separatorChar: ',');
+            
 
             //create learning pipeline
             string featuresColumnName = "Features";
             var pipeline = mlContext.Transforms
                                 .Concatenate(featuresColumnName, "SepalLength", "SepalWidth", "PetalLength", "PetalWidth")
                                 .Append(mlContext.Clustering.Trainers.KMeans(featuresColumnName, clustersCount: 3));
-
+            // var pipeline = mlContext.Transforms.Conversion.MapValueToKey("Label")
+            //     .Append(mlContext.Transforms.Concatenate("Features", "SepalLength", "SepalWidth", "PetalLength", "PetalWidth"))
+            //     .AppendCacheCheckpoint(mlContext)
+            //     .Append(mlContext.MulticlassClassification.Trainers.StochasticDualCoordinateAscent(labelColumnName: "Label", featureColumnName: "Features"))
+            //     .Append(mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
             
             //train the model
-            var model  = pipeline.Fit(dataView);
+            var model  = pipeline.Fit(data);
 
             //save the model
             using(var fs = new FileStream(_modelPath, FileMode.Create, FileAccess.Write, FileShare.Write))
